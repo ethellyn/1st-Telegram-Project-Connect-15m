@@ -144,17 +144,12 @@ jobs:
           sudo apt-get update && sudo apt-get install -y jq
           curl "$SHEETBEST_URL" > global_leaderboard.json
           cat global_leaderboard.json | jq .
-          count=$(jq '[ .[] | to_entries | map({(.key|ascii_downcase|gsub(" "; "")): .value}) | from_entries | select(.user != null and .user != "" and .user != "null") ] | length' global_leaderboard.json)
+          count=$(jq '[.[] | select(.user != null and .user != "" and .user != "null")] | length' global_leaderboard.json)
           if [ "$count" -eq 0 ]; then
             echo "LEADERBOARD_GLOBAL=Belum ada data global" >> $GITHUB_ENV
           else
             leaderboard=$(jq -r '
-              [ .[] 
-                | to_entries 
-                | map({(.key|ascii_downcase|gsub(" "; "")): .value}) 
-                | from_entries 
-                | select(.user != null and .user != "" and .user != "null")
-              ] |
+              [.[] | select(.user != null and .user != "" and .user != "null")] |
               sort_by(.user) |
               group_by(.user) |
               map({"user": .[0].user, "count": length}) |
