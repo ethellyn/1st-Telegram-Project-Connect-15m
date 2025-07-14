@@ -138,22 +138,17 @@ jobs:
           sudo apt-get update && sudo apt-get install -y jq
           curl "$SHEETBEST_URL" > global_leaderboard.json
           cat global_leaderboard.json | jq .
-          count=$(jq '[.[] | select(.user != null and .user != "" and .user != "null")] | length' global_leaderboard.json)
-          if [ "$count" -eq 0 ]; then
-            echo "LEADERBOARD_GLOBAL=Belum ada data global" >> $GITHUB_ENV
-          else
-            leaderboard=$(jq -r '
-              [.[] | select(.user != null and .user != "" and .user != "null")] |
-              group_by(.user) |
-              map({"user": .[0].user, "count": length}) |
-              sort_by(-.count, .user) |
-              .[:5] |
-              to_entries |
-              map("\(.key+1). \(.value.value.user) [\(.value.value.count)]") |
-              join("<br />")
-            ' global_leaderboard.json)
-            echo "LEADERBOARD_GLOBAL=$leaderboard" >> $GITHUB_ENV
-          fi
+          leaderboard=$(jq -r '
+            map(select(.user != null and .user != "" and .user != "null"))
+            | group_by(.user)
+            | map({user: .[0].user, count: length})
+            | sort_by(-.count, .user)
+            | .[:5]
+            | to_entries
+            | map("\(.key+1). \(.value.value.user) [\(.value.value.count)]")
+            | join("<br />")
+          ' global_leaderboard.json)
+          echo "LEADERBOARD_GLOBAL=$leaderboard" >> $GITHUB_ENV
 
       - name: DEBUG Print LEADERBOARD_GLOBAL
         run: |
