@@ -144,7 +144,6 @@ jobs:
           else
             leaderboard=$(jq -r '
               [.[] | select(.user != null and .user != "" and .user != "null")] |
-              sort_by(.user) |
               group_by(.user) |
               map({"user": .[0].user, "count": length}) |
               sort_by(-.count, .user) |
@@ -155,6 +154,11 @@ jobs:
             ' global_leaderboard.json)
             echo "LEADERBOARD_GLOBAL=$leaderboard" >> $GITHUB_ENV
           fi
+
+      - name: DEBUG Print LEADERBOARD_GLOBAL
+        run: |
+          echo "LEADERBOARD_GLOBAL: $LEADERBOARD_GLOBAL"
+          cat $GITHUB_ENV
 
       - name: 🔔 Send Notification to Telegram
         uses: appleboy/telegram-action@v0.1.0
