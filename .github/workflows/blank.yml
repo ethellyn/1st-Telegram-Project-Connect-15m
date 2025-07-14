@@ -123,14 +123,19 @@ jobs:
         env:
           SHEETBEST_URL: ${{ secrets.SHEETBEST_URL }}
         run: |
+          if ! command -v jq &>/dev/null; then
+            sudo apt-get update && sudo apt-get install -y jq
+          fi
+          TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          REPO="${{ github.repository }}"
+          USER="${{ github.actor }}"
+          LEVEL="${{ env.LEVEL_NAME }}"
+          JSON=$(jq -nc --arg timestamp "$TIMESTAMP" --arg repo "$REPO" --arg user "$USER" --arg level "$LEVEL" \
+            '{timestamp: $timestamp, repo: $repo, user: $user, level: $level}')
+          echo "Sending JSON: $JSON"
           curl -X POST "$SHEETBEST_URL" \
             -H "Content-Type: application/json" \
-            -d '{
-              "timestamp": "'"$(date -u +"%Y-%m-%dT%H:%M:%SZ")"' ,
-              "repo": "'"${{ github.repository }}"'" ,
-              "user": "'"${{ github.actor }}"'" ,
-              "level": "'"${{ env.LEVEL_NAME }}"'"
-            }'
+            -d "$JSON"
 
       - name: 🏆 Fetch Global Leaderboard (SheetBest)
         env:
@@ -138,6 +143,7 @@ jobs:
         run: |
           sudo apt-get update && sudo apt-get install -y jq
           curl "$SHEETBEST_URL" > global_leaderboard.json
+          cat global_leaderboard.json
           leaderboard=$(jq -r 'group_by(.user) | map({"user": .[0].user, "count": length}) | sort_by(-.count) | .[:5] | to_entries | map("\(.key+1). \(.value.value.user) [\(.value.value.count)]") | join("<br />")' global_leaderboard.json)
           echo "LEADERBOARD_GLOBAL=$leaderboard" >> $GITHUB_ENV
 
