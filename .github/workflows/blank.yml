@@ -1,136 +1,3 @@
-name: 🚀 Auto Cool Level Generator
-
-on:
-  schedule:
-    - cron: '*/15 * * * *'
-  workflow_dispatch:
-
-jobs:
-  generate-level:
-    name: 🌟 Generate Cool Level
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: ⬇️ Checkout Code
-        uses: actions/checkout@v4
-
-      - name: ✨ Gaming Level Unlocked Banner
-        run: |
-          echo ""
-          echo "╔═══🗃️══════════🗃️═══╗"
-          echo "      🗂️DATABASE MIGRATED🗂️  "
-          echo " 🔒SECURITY PATCH APPLIED🔒 "
-          echo "   💾BACKUPS COMPLETED💾  "
-          echo "╚═══🗃️══════════🗃️═══╝"
-          echo ""
-
-      - name: 📝 Generate Next Cool Level (no ASCII)
-        shell: bash
-        run: |
-          set -e
-
-          cool_names=(
-            "Vortex" "Nebula" "Phoenix" "Falcon" "Titan" "Shadow" "Blaze" "Nova" "Specter" "Stellar"
-            "Inferno" "Cosmos" "Zephyr" "Obsidian" "Glacier" "Thunder" "Matrix" "Aurora" "Samurai" "Ninja"
-            "Ronin" "Valkyrie" "Oracle" "Sonic" "Ranger" "Drift" "Mirage" "Cipher" "Echo" "Titanium"
-            "Genesis" "Saber" "Onyx" "Blizzard" "Venom" "Storm" "Astro" "Galaxy" "Eclipse" "Magma"
-            "Turbo" "Rogue" "Elemental" "Surge" "Radiant" "Zenith" "Prime" "Sentinel" "Golem" "Mystic"
-          )
-
-          programmer_quotes=(
-            "“Talk is cheap. Show me the code.” – Linus Torvalds"
-            "“Programs must be written for people to read, and only incidentally for machines to execute.” – Harold Abelson"
-            "“First, solve the problem. Then, write the code.” – John Johnson"
-            "“Simplicity is the soul of efficiency.” – Austin Freeman"
-            "“Code is like humor. When you have to explain it, it’s bad.” – Cory House"
-            "“Experience is the name everyone gives to their mistakes.” – Oscar Wilde"
-            "“Fix the cause, not the symptom.” – Steve Maguire"
-            "“Before software can be reusable it first has to be usable.” – Ralph Johnson"
-            "“Make it work, make it right, make it fast.” – Kent Beck"
-            "“The best error message is the one that never shows up.” – Thomas Fuchs"
-          )
-
-          RANDOM_QUOTE="${programmer_quotes[$RANDOM % ${#programmer_quotes[@]}]}"
-          echo "PROGRAMMER_QUOTE=$RANDOM_QUOTE" >> $GITHUB_ENV
-
-          mkdir -p levels
-
-          last_name=""
-          if ls levels/level-*-*.txt 1> /dev/null 2>&1; then
-            last_file=$(ls levels/level-*-*.txt | sort | tail -n 1)
-            last_name=$(basename "$last_file" | sed -E 's/level-[0-9]{8}-[0-9]{4}-(.*)\.txt/\1/')
-          fi
-
-          idx=0
-          if [ -n "$last_name" ]; then
-            for i in "${!cool_names[@]}"; do
-              if [[ "${cool_names[$i]}" == "$last_name" ]]; then
-                idx=$(( (i + 1) % ${#cool_names[@]} ))
-                break
-              fi
-            done
-          fi
-
-          next_name="${cool_names[$idx]}"
-          file_name="levels/level-$(date +%Y%m%d-%H%M)-${next_name}.txt"
-
-          {
-            echo "# 🌌 Level: $next_name"
-            echo "# Generated at: $(date -u)"
-            echo "# By: ethellyneera@gmail.com"
-          } > "$file_name"
-
-          echo "LEVEL_NAME=$next_name" >> $GITHUB_ENV
-          echo "Created $file_name"
-
-      - name: ⏰ Generate Formatted Time
-        run: |
-          echo "FORMATTED_TIME=$(TZ='Asia/Jakarta' date '+%d/%m/%Y %H:%M:%S WIB')" >> $GITHUB_ENV
-
-      - name: 🔢 Generate Notification Counter
-        id: notif-counter
-        run: |
-          count=$(ls levels/level-*-*.txt 2>/dev/null | wc -l)
-          echo "NOTIF_COUNTER=$count" >> $GITHUB_ENV
-
-      - name: 🏆 Update Leaderboard
-        run: |
-          mkdir -p data
-          file="data/leaderboard.json"
-          user="${{ github.actor }}"
-
-          if ! command -v jq &>/dev/null; then
-            sudo apt-get update && sudo apt-get install -y jq
-          fi
-
-          if [ ! -f "$file" ]; then
-            echo '{}' > "$file"
-          fi
-
-          new_json=$(jq --arg user "$user" '
-            .[$user] = (if .[$user] then .[$user] + 1 else 1 end)
-          ' "$file")
-
-          echo "$new_json" > "$file"
-
-      - name: 🌐 Update Global Leaderboard (SheetBest)
-        env:
-          SHEETBEST_URL: ${{ secrets.SHEETBEST_URL }}
-        run: |
-          if ! command -v jq &>/dev/null; then
-            sudo apt-get update && sudo apt-get install -y jq
-          fi
-          TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-          REPO="${{ github.repository }}"
-          USER="${{ github.actor }}"
-          LEVEL="${{ env.LEVEL_NAME }}"
-          JSON=$(jq -nc --arg timestamp "$TIMESTAMP" --arg repo "$REPO" --arg user "$USER" --arg level "$LEVEL" \
-            '{timestamp: $timestamp, repo: $repo, user: $user, level: $level}')
-          echo "Sending JSON: $JSON"
-          curl -X POST "$SHEETBEST_URL" \
-            -H "Content-Type: application/json" \
-            -d "$JSON"
-
       - name: 🏆 Fetch Global Leaderboard (SheetBest)
         env:
           SHEETBEST_URL: ${{ secrets.SHEETBEST_URL }}
@@ -139,30 +6,25 @@ jobs:
           curl "$SHEETBEST_URL" > global_leaderboard.json
           echo "Isi global_leaderboard.json:"
           cat global_leaderboard.json
-          # Validasi: jika bukan array, leaderboard akan menampilkan pesan error
-          if ! jq 'type == "array"' global_leaderboard.json | grep -q true; then
-            echo "LEADERBOARD_GLOBAL=Data leaderboard tidak valid" >> $GITHUB_ENV
-          else
-            leaderboard=$(jq -r '
-              map(select(.user != null and .user != "" and .user != "null"))
-              | group_by(.user)
-              | map({user: .[0].user, count: length})
-              | sort_by(-.count, .user)
-              | .[:5]
-              | to_entries
-              | map("\(.key+1). \(.value.value.user) [\(.value.value.count)]")
-              | join("<br />")
-            ' global_leaderboard.json)
-            if [ -z "$leaderboard" ] || [[ "$leaderboard" == *null* ]]; then
-              leaderboard="Belum ada data leaderboard"
-            fi
-            echo "LEADERBOARD_GLOBAL=$leaderboard" >> $GITHUB_ENV
+          leaderboard=$(jq -r '
+            map(select(.user != null and .user != "" and .user != "null"))
+            | group_by(.user)
+            | map({user: .[0].user, count: length})
+            | sort_by(-.count, .user)
+            | .[:5]
+            | to_entries
+            | map("\(.key+1). \(.value.value.user) [\(.value.value.count)]")
+            | join("<br />")
+          ' global_leaderboard.json)
+          if [ -z "$leaderboard" ] || [[ "$leaderboard" == *null* ]]; then
+            leaderboard="Belum ada data leaderboard"
           fi
+          echo "LEADERBOARD_GLOBAL=$leaderboard" >> $GITHUB_ENV
+          echo "LEADERBOARD_GLOBAL: $leaderboard"
 
       - name: DEBUG Print LEADERBOARD_GLOBAL
         run: |
-          echo "LEADERBOARD_GLOBAL: $LEADERBOARD_GLOBAL"
-          cat $GITHUB_ENV
+          grep LEADERBOARD_GLOBAL $GITHUB_ENV
 
       - name: 🔔 Send Notification to Telegram
         uses: appleboy/telegram-action@v0.1.0
@@ -189,21 +51,3 @@ jobs:
             <b>💯 This script was 100% created by Abie Haryatmo</b>
             <i>${{ env.PROGRAMMER_QUOTE }}</i>
           format: html
-
-      - name: 🤖 Configure Git
-        run: |
-          git config user.name "ethellyneera"
-          git config user.email "ethellyneera@gmail.com"
-
-      - name: 🚩 Commit & Push Changes (Auto-resolve Conflict)
-        run: |
-          set -e
-          git add levels/
-          git add data/leaderboard.json
-          git commit -m "✨ Add Level: ${{ env.LEVEL_NAME }} (by ${{ github.actor }}) & update leaderboard" || echo "Nothing to commit"
-          git pull --rebase --autostash || {
-            echo "Conflict detected, resolving..."
-            git rebase --abort
-            git pull --no-rebase
-          }
-          git push
