@@ -191,10 +191,15 @@ jobs:
           git config user.name "ethellyneera"
           git config user.email "ethellyneera@gmail.com"
 
-      - name: 🚩 Commit & Push Changes
+      - name: 🚩 Commit & Push Changes (Auto-resolve Conflict)
         run: |
+          set -e
           git add levels/
           git add data/leaderboard.json
           git commit -m "✨ Add Level: ${{ env.LEVEL_NAME }} (by ${{ github.actor }}) & update leaderboard" || echo "Nothing to commit"
-          git pull --rebase
+          git pull --rebase --autostash || {
+            echo "Conflict detected, resolving..."
+            git rebase --abort
+            git pull --no-rebase
+          }
           git push
