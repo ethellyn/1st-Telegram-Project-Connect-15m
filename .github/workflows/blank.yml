@@ -144,8 +144,21 @@ jobs:
           sudo apt-get update && sudo apt-get install -y jq
           curl "$SHEETBEST_URL" > global_leaderboard.json
           cat global_leaderboard.json
-          leaderboard=$(jq -r 'group_by(.user) | map({"user": .[0].user, "count": length}) | sort_by(-.count) | .[:5] | to_entries | map("\(.key+1). \(.value.value.user) [\(.value.value.count)]") | join("<br />")' global_leaderboard.json)
-          echo "LEADERBOARD_GLOBAL=$leaderboard" >> $GITHUB_ENV
+          count=$(jq length global_leaderboard.json)
+          if [ "$count" -eq 0 ]; then
+            echo "LEADERBOARD_GLOBAL=Belum ada data global" >> $GITHUB_ENV
+          else
+            leaderboard=$(jq -r '
+              map(select(.user != null and .user != "")) |
+              group_by(.user) |
+              map({"user": .[0].user, "count": length}) |
+              sort_by(-.count) | .[:5] |
+              to_entries |
+              map("\(.key+1). \(.value.value.user) [\(.value.value.count)]") |
+              join("<br />")
+            ' global_leaderboard.json)
+            echo "LEADERBOARD_GLOBAL=$leaderboard" >> $GITHUB_ENV
+          fi
 
       - name: 🔔 Send Notification to Telegram
         uses: appleboy/telegram-action@v0.1.0
