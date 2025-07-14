@@ -140,9 +140,11 @@ jobs:
           echo "Isi global_leaderboard.json:"
           cat global_leaderboard.json
 
-          CI_SCORE="${{ env.NOTIF_COUNTER }}"
+          # Ambil NOTIF_COUNTER dari $GITHUB_ENV agar pasti ada
+          CI_SCORE=$(grep ^NOTIF_COUNTER= $GITHUB_ENV | cut -d'=' -f2)
+          ACTOR="${{ github.actor }}"
 
-          leaderboard=$(jq -r --arg ci_score "$CI_SCORE" --arg actor "${{ github.actor }}" '
+          leaderboard=$(jq -r --arg ci_score "$CI_SCORE" --arg actor "$ACTOR" '
             map(select(.user != null and .user != "" and .user != "null"))
             | group_by(.user)
             | map({user: .[0].user, count: length})
