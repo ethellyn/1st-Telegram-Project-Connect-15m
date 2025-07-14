@@ -113,12 +113,6 @@ jobs:
 
           echo "$new_json" > "$file"
 
-          leaderboard=$(jq -r 'to_entries | sort_by(-.value) | .[:5] | 
-            to_entries | map("\(.key + 1). \(.value.key) [\(.value.value)]") | join("\n")' "$file")
-
-          leaderboard_html=$(echo "$leaderboard" | sed ':a;N;$!ba;s/\n/<br \/>/g')
-          echo "LEADERBOARD=$leaderboard_html" >> $GITHUB_ENV
-
       - name: 🌐 Update Global Leaderboard (SheetBest)
         env:
           SHEETBEST_URL: ${{ secrets.SHEETBEST_URL }}
@@ -179,9 +173,6 @@ jobs:
             <b>• ⏳ Deployed At :</b> <b>${{ env.FORMATTED_TIME }}</b>
             <b>• 🧾 CI Run # :</b> <b>${{ env.NOTIF_COUNTER }}</b>
             <b>• 🔐 Commit Auth :</b> <b>ethellyneera@gmail.com</b>
-
-            <b>🏅 Leaderboard (Top 5 Repo):</b>
-            <pre>${{ env.LEADERBOARD }}</pre>
 
             <b>🏅 Leaderboard (Top 5 Global):</b>
             <pre>${{ env.LEADERBOARD_GLOBAL }}</pre>
