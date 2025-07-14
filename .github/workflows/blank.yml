@@ -157,7 +157,7 @@ jobs:
 
       - name: DEBUG Print LEADERBOARD_GLOBAL
         run: |
-          grep LEADERBOARD_GLOBAL $GITHUB_ENV
+          cat $GITHUB_ENV | grep LEADERBOARD_GLOBAL || echo "LEADERBOARD_GLOBAL not found"
 
       - name: 🔔 Send Notification to Telegram
         uses: appleboy/telegram-action@v0.1.0
