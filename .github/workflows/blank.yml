@@ -140,13 +140,18 @@ jobs:
           echo "Isi global_leaderboard.json:"
           cat global_leaderboard.json
 
-          leaderboard=$(jq -r '
+          leaderboard=$(jq -r --arg actor "${{ github.actor }}" --arg score "${{ env.NOTIF_COUNTER }}" '
             group_by(.user)
             | map({user: .[0].user, count: length})
             | sort_by(-.count, .user)
             | .[:5]
             | to_entries
-            | map("\(.key+1). \(.value.user) [\(.value.count)]")
+            | map(
+                if .value.user == $actor
+                then "\(.key+1). \(.value.user) [\(.value.count) | Score: \($score)]"
+                else "\(.key+1). \(.value.user) [\(.value.count)]"
+                end
+              )
             | join("\n")
           ' global_leaderboard.json)
 
