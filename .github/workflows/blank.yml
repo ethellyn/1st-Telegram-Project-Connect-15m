@@ -139,14 +139,22 @@ jobs:
           curl "$SHEETBEST_URL" > global_leaderboard.json
           echo "Isi global_leaderboard.json:"
           cat global_leaderboard.json
-          leaderboard=$(jq -r '
+
+          CI_SCORE="${{ env.NOTIF_COUNTER }}"
+
+          leaderboard=$(jq -r --arg ci_score "$CI_SCORE" --arg actor "${{ github.actor }}" '
             map(select(.user != null and .user != "" and .user != "null"))
             | group_by(.user)
             | map({user: .[0].user, count: length})
             | sort_by(-.count, .user)
             | .[:5]
             | to_entries
-            | map("\(.key+1). \(.value.value.user) [\(.value.value.count)]")
+            | map(
+                if .value.value.user == $actor
+                then "\(.key+1). \(.value.value.user) [\(.value.value.count) | Score: \($ci_score)]"
+                else "\(.key+1). \(.value.value.user) [\(.value.value.count)]"
+                end
+              )
             | join("<br />")
           ' global_leaderboard.json)
           if [ -z "$leaderboard" ] || [[ "$leaderboard" == *null* ]]; then
