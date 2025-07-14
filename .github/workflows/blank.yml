@@ -93,6 +93,37 @@ jobs:
           count=$(ls levels/level-*-*.txt 2>/dev/null | wc -l)
           echo "NOTIF_COUNTER=$count" >> $GITHUB_ENV
 
+      - name: 🏆 Update Leaderboard
+        run: |
+          mkdir -p data
+          file="data/leaderboard.json"
+          user="${{ github.actor }}"
+
+          # Install jq if not present
+          if ! command -v jq &>/dev/null; then
+            sudo apt-get update && sudo apt-get install -y jq
+          fi
+
+          # Inisialisasi file jika belum ada
+          if [ ! -f "$file" ]; then
+            echo '{}' > "$file"
+          fi
+
+          # Update count user
+          new_json=$(jq --arg user "$user" '
+            .[$user] = (if .[$user] then .[$user] + 1 else 1 end)
+          ' "$file")
+
+          echo "$new_json" > "$file"
+
+          # Generate leaderboard string (top 5)
+          leaderboard=$(jq -r 'to_entries | sort_by(-.value) | .[:5] | 
+            to_entries | map("\(.key + 1). \(.value.key) [\(.value.value)]") | join("\n")' "$file")
+
+          # Simpan ke env dengan format untuk HTML Telegram
+          leaderboard_html=$(echo "$leaderboard" | sed ':a;N;$!ba;s/\n/<br \/>/g')
+          echo "LEADERBOARD=$leaderboard_html" >> $GITHUB_ENV
+
       - name: 🔔 Send Notification to Telegram
         uses: appleboy/telegram-action@v0.1.0
         with:
@@ -111,6 +142,9 @@ jobs:
             <b>• 🧾 CI Run # :</b> <b>${{ env.NOTIF_COUNTER }}</b>
             <b>• 🔐 Commit Auth :</b> <b>ethellyneera@gmail.com</b>
 
+            <b>🏅 Leaderboard (Top 5):</b>
+            <pre>${{ env.LEADERBOARD }}</pre>
+
             <b>#DeployLikeAPro #DevOpsMode</b>
             <b>💯 This script was 100% created by Abie Haryatmo</b>
             <i>${{ env.PROGRAMMER_QUOTE }}</i>
@@ -124,5 +158,7 @@ jobs:
       - name: 🚩 Commit & Push Changes
         run: |
           git add levels/
-          git commit -m "✨ Add Level: ${{ env.LEVEL_NAME }} (by ethellyneera@gmail.com)" || echo "Nothing to commit"
+          git add data/leaderboard.json
+          git commit -m "✨ Add Level: ${{ env.LEVEL_NAME }} (by ${{ github.actor }}) & update leaderboard" || echo "Nothing to commit"
+          git pull --rebase
           git push
