@@ -1,12 +1,14 @@
-name: 🚀 Auto Cool Level Generator
+name: 🚀 Auto Cool Level Generator & Weekly Winner
 
 on:
   schedule:
     - cron: '*/15 * * * *'
+    - cron: '0 0 * * 1' # Tambahan: Weekly winner tiap Senin 00:00 UTC
   workflow_dispatch:
 
 jobs:
   generate-level:
+    if: github.event.schedule != '0 0 * * 1' # Hanya jalan kalau BUKAN weekly winner
     name: 🌟 Generate Cool Level
     runs-on: ubuntu-latest
 
@@ -138,21 +140,23 @@ jobs:
           sudo apt-get update && sudo apt-get install -y jq
           curl "$SHEETBEST_URL" > global_leaderboard.json
 
-          leaderboard=$(jq -r '
+          NOTIF_COUNTER="${{ env.NOTIF_COUNTER }}"
+
+          leaderboard=$(jq -r --arg score "$NOTIF_COUNTER" '
             group_by(.user)
-            | map({user: .[0].user, last_level: .[-1].level, last_level_count: length})
-            | sort_by(-.last_level_count, .user)
+            | map({user: .[0].user, last_level: .[-1].level})
+            | sort_by(.user)
             | .[:10]
             | to_entries
             | map(
               if .key == 0 then
-                "1. 🟥 \(.value.user) [\(.value.last_level) | Score: \(.value.last_level_count)]"
+                "1. 🟥 \(.value.user) [\(.value.last_level) | Score: \($score)]"
               elif .key == 1 then
-                "2. 🟧 \(.value.user) [\(.value.last_level) | Score: \(.value.last_level_count)]"
+                "2. 🟧 \(.value.user) [\(.value.last_level) | Score: \($score)]"
               elif .key == 2 then
-                "3. 🟨 \(.value.user) [\(.value.last_level) | Score: \(.value.last_level_count)]"
+                "3. 🟨 \(.value.user) [\(.value.last_level) | Score: \($score)]"
               else
-                "\(.key+1). 🟪 \(.value.user) [\(.value.last_level) | Score: \(.value.last_level_count)]"
+                "\(.key+1). 🟪 \(.value.user) [\(.value.last_level) | Score: \($score)]"
               end
             )
             | join("\n")
@@ -216,3 +220,63 @@ jobs:
             git pull --no-rebase
           }
           git push
+
+  announce-weekly-winner:
+    if: github.event.schedule == '0 0 * * 1' # Hanya jalan jika weekly winner
+    name: 🏅 Weekly Winner Announcement
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fetch Leaderboard Data
+        env:
+          SHEETBEST_URL: ${{ secrets.SHEETBEST_URL }}
+        run: |
+          sudo apt-get update && sudo apt-get install -y jq
+          curl "$SHEETBEST_URL" > global_leaderboard.json
+
+          week_start=$(date -u -d 'last monday' +%Y-%m-%d)
+          week_end=$(date -u +%Y-%m-%d)
+
+          winner=$(jq -r --arg start "$week_start" --arg end "$week_end" '
+            [ .[] | select(.timestamp >= ($start + "T00:00:00Z") and .timestamp < ($end + "T00:00:00Z")) ]
+            | group_by(.user)
+            | map({user: .[0].user, score: length})
+            | max_by(.score) // default if empty
+          ' global_leaderboard.json)
+
+          user=$(echo "$winner" | jq -r .user)
+          score=$(echo "$winner" | jq -r .score)
+
+          badge=""
+          if [ "$user" != "null" ] && [ -n "$user" ]; then
+            total_score=$(jq -r --arg user "$user" '
+              [ .[] | select(.user == $user) ] | length
+            ' global_leaderboard.json)
+
+            if [ "$total_score" -ge 50 ]; then
+              badge="🏆 <b>LEGEND</b>"
+            elif [ "$total_score" -ge 25 ]; then
+              badge="⭐ <b>MASTER</b>"
+            elif [ "$total_score" -ge 10 ]; then
+              badge="🔥 <b>EXPERT</b>"
+            elif [ "$total_score" -ge 5 ]; then
+              badge="🌟 <b>RISING STAR</b>"
+            elif [ "$total_score" -ge 1 ]; then
+              badge="✨ <b>NEWBIE</b>"
+            fi
+          fi
+
+          if [ "$user" == "null" ] || [ -z "$user" ]; then
+            msg="Tidak ada kontributor dalam minggu ini."
+          else
+            msg="🏆 <b>Weekly Winner</b> (Periode $week_start s/d $(date -u -d "$week_end -1 day" +%Y-%m-%d)):\n\n<b>$user</b> dengan <b>$score</b> level!\n$badge"
+          fi
+
+          echo "$msg" > winner_message.txt
+
+      - name: Send Telegram Announcement
+        uses: appleboy/telegram-action@v0.1.0
+        with:
+          to: ${{ secrets.TELEGRAM_TO }}
+          token: ${{ secrets.TELEGRAM_TOKEN }}
+          message_file: winner_message.txt
+          format: html
