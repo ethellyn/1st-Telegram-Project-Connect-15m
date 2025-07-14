@@ -137,21 +137,24 @@ jobs:
         run: |
           sudo apt-get update && sudo apt-get install -y jq
           curl "$SHEETBEST_URL" > global_leaderboard.json
-          echo "Isi global_leaderboard.json:"
-          cat global_leaderboard.json
 
-          leaderboard=$(jq -r --arg actor "${{ github.actor }}" --arg score "${{ env.NOTIF_COUNTER }}" '
+          leaderboard=$(jq -r '
             group_by(.user)
-            | map({user: .[0].user, count: length})
-            | sort_by(-.count, .user)
-            | .[:5]
+            | map({user: .[0].user, last_level: .[-1].level, last_level_count: length})
+            | sort_by(-.last_level_count, .user)
+            | .[:10]
             | to_entries
             | map(
-                if .value.user == $actor
-                then "\(.key+1). \(.value.user) [\(.value.count) | Score: \($score)]"
-                else "\(.key+1). \(.value.user) [\(.value.count)]"
-                end
-              )
+              if .key == 0 then
+                "\(.key+1). <span style=\"color:#e74c3c\">\(.value.user)</span> [\(.value.last_level) | Score: \(.value.last_level_count)]"
+              elif .key == 1 then
+                "\(.key+1). <span style=\"color:#f39c12\">\(.value.user)</span> [\(.value.last_level) | Score: \(.value.last_level_count)]"
+              elif .key == 2 then
+                "\(.key+1). <span style=\"color:#f1c40f\">\(.value.user)</span> [\(.value.last_level) | Score: \(.value.last_level_count)]"
+              else
+                "\(.key+1). \(.value.user) [\(.value.last_level) | Score: \(.value.last_level_count)]"
+              end
+            )
             | join("\n")
           ' global_leaderboard.json)
 
@@ -159,7 +162,6 @@ jobs:
             leaderboard="Belum ada data leaderboard"
           fi
 
-          # FIX: Multi-line env var for GitHub Actions
           echo "LEADERBOARD_GLOBAL<<EOF" >> $GITHUB_ENV
           echo "$leaderboard" >> $GITHUB_ENV
           echo "EOF" >> $GITHUB_ENV
@@ -189,7 +191,7 @@ jobs:
             <b>• 🧾 CI Run # :</b> <b>${{ env.NOTIF_COUNTER }}</b>
             <b>• 🔐 Commit Auth :</b> <b>ethellyneera@gmail.com</b>
 
-            <b>🏅 Leaderboard (Top 5 Global):</b>
+            <b>🏅 Leaderboard (Top 10 Global):</b>
             <pre>${{ env.LEADERBOARD_GLOBAL }}</pre>
 
             <b>#DeployLikeAPro #DevOpsMode</b>
