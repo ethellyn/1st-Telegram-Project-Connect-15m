@@ -154,8 +154,13 @@ jobs:
             leaderboard="Belum ada data leaderboard"
           fi
 
-          echo "LEADERBOARD_GLOBAL=$leaderboard" >> $GITHUB_ENV
-          echo "LEADERBOARD_GLOBAL: $leaderboard"
+          # FIX: Multi-line env var for GitHub Actions
+          echo "LEADERBOARD_GLOBAL<<EOF" >> $GITHUB_ENV
+          echo "$leaderboard" >> $GITHUB_ENV
+          echo "EOF" >> $GITHUB_ENV
+
+          echo "LEADERBOARD_GLOBAL:"
+          echo "$leaderboard"
 
       - name: DEBUG Print LEADERBOARD_GLOBAL
         run: |
