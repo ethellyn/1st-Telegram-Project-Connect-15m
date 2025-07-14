@@ -2,7 +2,7 @@ name: 🚀 Auto Cool Level Generator
 
 on:
   schedule:
-    - cron: '*/15 * * * *' # Every 15 minutes
+    - cron: '*/15 * * * *'
   workflow_dispatch:
 
 jobs:
@@ -99,30 +99,47 @@ jobs:
           file="data/leaderboard.json"
           user="${{ github.actor }}"
 
-          # Install jq if not present
           if ! command -v jq &>/dev/null; then
             sudo apt-get update && sudo apt-get install -y jq
           fi
 
-          # Inisialisasi file jika belum ada
           if [ ! -f "$file" ]; then
             echo '{}' > "$file"
           fi
 
-          # Update count user
           new_json=$(jq --arg user "$user" '
             .[$user] = (if .[$user] then .[$user] + 1 else 1 end)
           ' "$file")
 
           echo "$new_json" > "$file"
 
-          # Generate leaderboard string (top 5)
           leaderboard=$(jq -r 'to_entries | sort_by(-.value) | .[:5] | 
             to_entries | map("\(.key + 1). \(.value.key) [\(.value.value)]") | join("\n")' "$file")
 
-          # Simpan ke env dengan format untuk HTML Telegram
           leaderboard_html=$(echo "$leaderboard" | sed ':a;N;$!ba;s/\n/<br \/>/g')
           echo "LEADERBOARD=$leaderboard_html" >> $GITHUB_ENV
+
+      - name: 🌐 Update Global Leaderboard (SheetBest)
+        env:
+          SHEETBEST_URL: ${{ secrets.SHEETBEST_URL }}
+        run: |
+          curl -X POST "$SHEETBEST_URL" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "timestamp": "'"$(date -u +"%Y-%m-%dT%H:%M:%SZ")"'",
+              "repo": "'"${{ github.repository }}"'",
+              "user": "'"${{ github.actor }}"'",
+              "level": "'"${{ env.LEVEL_NAME }}""'"
+            }'
+
+      - name: 🏆 Fetch Global Leaderboard (SheetBest)
+        env:
+          SHEETBEST_URL: ${{ secrets.SHEETBEST_URL }}
+        run: |
+          sudo apt-get update && sudo apt-get install -y jq
+          curl "$SHEETBEST_URL" > global_leaderboard.json
+          leaderboard=$(jq -r 'group_by(.user) | map({"user": .[0].user, "count": length}) | sort_by(-.count) | .[:5] | to_entries | map("\(.key+1). \(.value.value.user) [\(.value.value.count)]") | join("<br />")' global_leaderboard.json)
+          echo "LEADERBOARD_GLOBAL=$leaderboard" >> $GITHUB_ENV
 
       - name: 🔔 Send Notification to Telegram
         uses: appleboy/telegram-action@v0.1.0
@@ -142,8 +159,11 @@ jobs:
             <b>• 🧾 CI Run # :</b> <b>${{ env.NOTIF_COUNTER }}</b>
             <b>• 🔐 Commit Auth :</b> <b>ethellyneera@gmail.com</b>
 
-            <b>🏅 Leaderboard (Top 5):</b>
+            <b>🏅 Leaderboard (Top 5 Repo):</b>
             <pre>${{ env.LEADERBOARD }}</pre>
+
+            <b>🏅 Leaderboard (Top 5 Global):</b>
+            <pre>${{ env.LEADERBOARD_GLOBAL }}</pre>
 
             <b>#DeployLikeAPro #DevOpsMode</b>
             <b>💯 This script was 100% created by Abie Haryatmo</b>
