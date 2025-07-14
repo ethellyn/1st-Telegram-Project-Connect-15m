@@ -146,13 +146,13 @@ jobs:
             | to_entries
             | map(
               if .key == 0 then
-                "\(.key+1). <span style=\"color:#e74c3c\">\(.value.user)</span> [\(.value.last_level) | Score: \(.value.last_level_count)]"
+                "1. 🟥 \(.value.user) [\(.value.last_level) | Score: \(.value.last_level_count)]"
               elif .key == 1 then
-                "\(.key+1). <span style=\"color:#f39c12\">\(.value.user)</span> [\(.value.last_level) | Score: \(.value.last_level_count)]"
+                "2. 🟧 \(.value.user) [\(.value.last_level) | Score: \(.value.last_level_count)]"
               elif .key == 2 then
-                "\(.key+1). <span style=\"color:#f1c40f\">\(.value.user)</span> [\(.value.last_level) | Score: \(.value.last_level_count)]"
+                "3. 🟨 \(.value.user) [\(.value.last_level) | Score: \(.value.last_level_count)]"
               else
-                "\(.key+1). \(.value.user) [\(.value.last_level) | Score: \(.value.last_level_count)]"
+                "\(.key+1). 🟪 \(.value.user) [\(.value.last_level) | Score: \(.value.last_level_count)]"
               end
             )
             | join("\n")
