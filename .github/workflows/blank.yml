@@ -137,18 +137,27 @@ jobs:
         run: |
           sudo apt-get update && sudo apt-get install -y jq
           curl "$SHEETBEST_URL" > global_leaderboard.json
-          cat global_leaderboard.json | jq .
-          leaderboard=$(jq -r '
-            map(select(.user != null and .user != "" and .user != "null"))
-            | group_by(.user)
-            | map({user: .[0].user, count: length})
-            | sort_by(-.count, .user)
-            | .[:5]
-            | to_entries
-            | map("\(.key+1). \(.value.value.user) [\(.value.value.count)]")
-            | join("<br />")
-          ' global_leaderboard.json)
-          echo "LEADERBOARD_GLOBAL=$leaderboard" >> $GITHUB_ENV
+          echo "Isi global_leaderboard.json:"
+          cat global_leaderboard.json
+          # Pastikan array, jika bukan array, maka parsing gagal
+          if ! jq empty global_leaderboard.json 2>/dev/null; then
+            echo "LEADERBOARD_GLOBAL=Data tidak valid" >> $GITHUB_ENV
+          else
+            leaderboard=$(jq -r '
+              map(select(.user != null and .user != "" and .user != "null"))
+              | group_by(.user)
+              | map({user: .[0].user, count: length})
+              | sort_by(-.count, .user)
+              | .[:5]
+              | to_entries
+              | map("\(.key+1). \(.value.value.user) [\(.value.value.count)]")
+              | join("<br />")
+            ' global_leaderboard.json)
+            if [ -z "$leaderboard" ] || [[ "$leaderboard" == *null* ]]; then
+              leaderboard="Belum ada data leaderboard"
+            fi
+            echo "LEADERBOARD_GLOBAL=$leaderboard" >> $GITHUB_ENV
+          fi
 
       - name: DEBUG Print LEADERBOARD_GLOBAL
         run: |
